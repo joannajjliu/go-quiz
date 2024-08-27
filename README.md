@@ -54,3 +54,4 @@ As a bonus exercises you can also...
 
 1. Add string trimming and cleanup to help ensure that correct answers with extra whitespace, capitalization, etc are not considered incorrect. *Hint: Check out the [strings](https://golang.org/pkg/strings/) package.*
 2. Add an option (a new flag) to shuffle the quiz order each time it is run.
+# go-quiz
