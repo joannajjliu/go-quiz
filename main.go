@@ -3,15 +3,23 @@ package main
 import (
 	"bufio"
 	"encoding/csv"
+	"flag"
 	"fmt"
-	"io"
+	"math/rand"
 	"os"
 	"strings"
 	"time"
 )
 
-func sendQuestions(done chan bool, inputReader *bufio.Reader) {
-	file, err := os.Open("problems.csv")
+func shuffleQuestions(records [][]string) {
+	for i := range records {
+		j := rand.Intn(i + 1)
+		records[i], records[j] = records[j], records[i]
+	}
+}
+
+func sendQuestions(done chan bool, inputReader *bufio.Reader, filename string, isRandom bool) {
+	file, err := os.Open(filename + ".csv")
 
 	if err != nil {
 		fmt.Println("err:", err)
@@ -26,19 +34,17 @@ func sendQuestions(done chan bool, inputReader *bufio.Reader) {
 	totalQuestions := 0
 	totalCorrect := 0
 
-	for {
-		record, err := csvReader.Read()
-		if err == io.EOF {
-			fmt.Printf("Of %d questions, you got %d correct!\n", totalQuestions, totalCorrect)
-			fmt.Println("end of file reached:", err)
-			done <- true
-			return
-		}
-		if err != nil {
-			fmt.Println("csv read err:", err)
-			return
-		}
+	records, err := csvReader.ReadAll()
+	if err != nil {
+		fmt.Println("csv read err:", err)
+		done <- true
+		return
+	}
+	if isRandom {
+		shuffleQuestions(records)
+	}
 
+	for _, record := range records {
 		totalQuestions += 1
 
 		lastIdx := len(record) - 1
@@ -57,22 +63,32 @@ func sendQuestions(done chan bool, inputReader *bufio.Reader) {
 			totalCorrect += 1
 		}
 	}
+
+	fmt.Printf("Of %d questions, you got %d correct!\n", totalQuestions, totalCorrect)
+	done <- true
 }
 
 func main() {
+	filename := flag.String("filename", "problems", "csv filename of the problems.")
+	timeLimit := flag.Int("timeLimit", 30, "time limit to complete quiz, in seconds.")
+	isRandom := flag.Bool("isRandom", false, "determines if questions should be given in random order.")
+
+	flag.Parse()
+	fmt.Println("flags:", *filename, *timeLimit)
+
 	inputReader := bufio.NewReader(os.Stdin)
 
 	fmt.Println("Press enter when you're ready to start the quiz!")
 	inputReader.ReadString('\n')
 
 	done := make(chan bool)
-	go sendQuestions(done, inputReader)
+	go sendQuestions(done, inputReader, *filename, *isRandom)
 
 	select {
 	case <-done:
 		fmt.Println("You've solved all the questions!")
 		return
-	case <-time.After(2 * time.Second):
+	case <-time.After(time.Duration(*timeLimit) * time.Second):
 		fmt.Println("You took too long. Better luck next time!")
 		return
 	}
